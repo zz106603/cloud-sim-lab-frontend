@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   Link,
   NavLink,
@@ -6,13 +6,31 @@ import {
   Routes,
   useParams,
 } from 'react-router-dom'
+import mermaid from 'mermaid'
 import {
   fetchDocument,
   fetchDocuments,
   fetchScenario,
   fetchScenarios,
+  simulateScenario,
+  type Scenario,
+  type ScenarioOption,
+  type SimulationResult,
 } from './api'
 import './App.css'
+
+mermaid.initialize({
+  startOnLoad: false,
+  securityLevel: 'strict',
+  theme: 'base',
+  themeVariables: {
+    primaryColor: '#eff6ff',
+    primaryBorderColor: '#93c5fd',
+    primaryTextColor: '#0f172a',
+    lineColor: '#64748b',
+    fontFamily: 'inherit',
+  },
+})
 
 function App() {
   return (
@@ -128,19 +146,34 @@ function ScenarioListPage() {
         description="운영 상황별 아키텍처 선택 문제를 확인합니다."
       />
       <div className="card-list">
-        {scenarios.map((scenario) => (
-          <Link className="card" key={scenario.id} to={`/scenarios/${scenario.id}`}>
-            <div className="meta-row">
-              <span>{scenario.category}</span>
-              <span>{scenario.level}</span>
+        {scenarios.map((scenario, index) =>
+          scenario.id ? (
+            <Link className="card" key={scenario.id} to={`/scenarios/${scenario.id}`}>
+              <ScenarioCardContent scenario={scenario} />
+            </Link>
+          ) : (
+            <div className="card disabled" key={`missing-scenario-id-${index}`}>
+              <ScenarioCardContent scenario={scenario} />
+              <p className="error-text">시나리오 ID가 없어 상세 페이지로 이동할 수 없습니다.</p>
             </div>
-            <h2>{scenario.title}</h2>
-            <p>{scenario.problem}</p>
-          </Link>
-        ))}
+          ),
+        )}
       </div>
       {scenarios.length === 0 && <StatusMessage message="등록된 시나리오가 없습니다." />}
     </section>
+  )
+}
+
+function ScenarioCardContent({ scenario }: { scenario: Scenario }) {
+  return (
+    <>
+      <div className="meta-row">
+        <span>{scenario.category}</span>
+        <span>{scenario.level}</span>
+      </div>
+      <h2>{scenario.title}</h2>
+      <p>{scenario.problem}</p>
+    </>
   )
 }
 
@@ -170,29 +203,246 @@ function ScenarioDetailPage() {
 
       <section className="detail-section">
         <h2>현재 아키텍처</h2>
-        <ol className="architecture-list">
-          {data.initialArchitecture.map((node) => (
-            <li key={node}>{node}</li>
-          ))}
-        </ol>
+        <ArchitectureDiagram nodes={data.initialArchitecture} />
       </section>
 
-      <section className="detail-section">
-        <h2>선택지</h2>
-        <div className="option-list">
-          {data.options.map((option) => (
-            <div className="option-card" key={option.id}>
-              <h3>{option.label}</h3>
-              <p>{option.description}</p>
-              {option.feedback && <p className="muted">{option.feedback}</p>}
-            </div>
-          ))}
-        </div>
-      </section>
+      <ScenarioSimulationPanel
+        key={data.id}
+        options={data.options}
+        scenarioId={data.id}
+      />
 
       <RelatedLinks ids={data.relatedDocumentIds} basePath="/docs" title="관련 문서" />
     </article>
   )
+}
+
+function ScenarioSimulationPanel({
+  scenarioId,
+  options,
+}: {
+  scenarioId: string
+  options: ScenarioOption[]
+}) {
+  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
+  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null)
+  const [simulationLoading, setSimulationLoading] = useState(false)
+  const [simulationError, setSimulationError] = useState<string | null>(null)
+
+  function toggleOption(optionId: string) {
+    setSelectedOptionIds((current) =>
+      current.includes(optionId)
+        ? current.filter((id) => id !== optionId)
+        : [...current, optionId],
+    )
+  }
+
+  async function handleSimulationSubmit() {
+    if (selectedOptionIds.length === 0) return
+
+    try {
+      setSimulationLoading(true)
+      setSimulationError(null)
+      setSimulationResult(await simulateScenario(scenarioId, selectedOptionIds))
+    } catch (err) {
+      setSimulationError(
+        err instanceof Error ? err.message : '시뮬레이션 실행 중 오류가 발생했습니다.',
+      )
+    } finally {
+      setSimulationLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <section className="detail-section">
+        <h2>선택지</h2>
+        <div className="option-list">
+          {options.map((option) => (
+            <label className="option-card selectable" key={option.id}>
+              <input
+                checked={selectedOptionIds.includes(option.id)}
+                disabled={simulationLoading}
+                onChange={() => toggleOption(option.id)}
+                type="checkbox"
+              />
+              <h3>{option.label}</h3>
+              <p>{option.description}</p>
+              <ScoreList scores={option.effects} />
+              {option.feedback && <p className="muted">{option.feedback}</p>}
+            </label>
+          ))}
+        </div>
+        <button
+          className="button primary simulate-button"
+          disabled={selectedOptionIds.length === 0 || simulationLoading}
+          onClick={handleSimulationSubmit}
+          type="button"
+        >
+          {simulationLoading ? '시뮬레이션 실행 중...' : '시뮬레이션 실행'}
+        </button>
+        {simulationError && <StatusMessage message={simulationError} isError />}
+      </section>
+
+      {simulationResult && (
+        <SimulationResultSection
+          result={simulationResult}
+          selectedOptions={options.filter((option) =>
+            simulationResult.selectedOptionIds.includes(option.id),
+          )}
+        />
+      )}
+    </>
+  )
+}
+
+function SimulationResultSection({
+  result,
+  selectedOptions,
+}: {
+  result: SimulationResult
+  selectedOptions: ScenarioOption[]
+}) {
+  const resultScores =
+    Object.keys(result.effects).length > 0 ? result.effects : mergeOptionEffects(selectedOptions)
+
+  return (
+    <section className="result-section">
+      <div className="result-header">
+        <h2>시뮬레이션 결과</h2>
+        <span className={`result-badge ${result.resultType.toLowerCase()}`}>
+          {result.resultType}
+        </span>
+      </div>
+
+      {result.summary && <p>{result.summary}</p>}
+      <ScoreList scores={resultScores} />
+
+      {result.detailFeedback.length > 0 && (
+        <div className="feedback-list">
+          <h3>피드백</h3>
+          <ul>
+            {result.detailFeedback.map((feedback) => (
+              <li key={feedback}>{feedback}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="feedback-list">
+        <h3>최종 아키텍처</h3>
+        <ArchitectureDiagram nodes={result.finalArchitecture} />
+      </div>
+
+      <RelatedLinks
+        ids={result.relatedDocumentIds}
+        basePath="/docs"
+        title="추천 학습 문서"
+      />
+    </section>
+  )
+}
+
+function ArchitectureDiagram({ nodes }: { nodes: string[] }) {
+  const [svg, setSvg] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const reactId = useId()
+  const diagramId = useMemo(
+    () => `architecture-${reactId.replace(/[^a-zA-Z0-9_-]/g, '')}`,
+    [reactId],
+  )
+  const renderCount = useRef(0)
+  const chart = useMemo(() => architectureToMermaid(nodes), [nodes])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function renderDiagram() {
+      if (!chart) {
+        setSvg('')
+        setError(null)
+        return
+      }
+
+      try {
+        setError(null)
+        renderCount.current += 1
+        const { svg: renderedSvg } = await mermaid.render(
+          `${diagramId}-${renderCount.current}`,
+          chart,
+        )
+        if (!cancelled) setSvg(renderedSvg)
+      } catch {
+        if (!cancelled) {
+          setSvg('')
+          setError('아키텍처 다이어그램을 렌더링할 수 없습니다.')
+        }
+      }
+    }
+
+    renderDiagram()
+
+    return () => {
+      cancelled = true
+    }
+  }, [chart, diagramId])
+
+  if (nodes.length === 0) {
+    return <StatusMessage message="아키텍처 정보가 없습니다." />
+  }
+
+  if (error) {
+    return <StatusMessage message={error} isError />
+  }
+
+  return (
+    <div
+      aria-label="아키텍처 다이어그램"
+      className="architecture-diagram"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  )
+}
+
+function architectureToMermaid(nodes: string[]) {
+  const visibleNodes = nodes.map((node) => node.trim()).filter(Boolean)
+  if (visibleNodes.length === 0) return ''
+
+  const definitions = visibleNodes.map(
+    (node, index) => `  node${index}["${escapeMermaidLabel(node)}"]`,
+  )
+  const edges = visibleNodes.slice(1).map((_, index) => `  node${index} --> node${index + 1}`)
+
+  return ['flowchart LR', ...definitions, ...edges].join('\n')
+}
+
+function escapeMermaidLabel(label: string) {
+  return label.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+}
+
+function ScoreList({ scores }: { scores: Record<string, number> }) {
+  const entries = Object.entries(scores)
+  if (entries.length === 0) return null
+
+  return (
+    <dl className="score-list">
+      {entries.map(([name, value]) => (
+        <div key={name}>
+          <dt>{name}</dt>
+          <dd>{value > 0 ? `+${value}` : value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function mergeOptionEffects(options: ScenarioOption[]) {
+  return options.reduce<Record<string, number>>((scores, option) => {
+    Object.entries(option.effects).forEach(([name, value]) => {
+      scores[name] = (scores[name] ?? 0) + value
+    })
+    return scores
+  }, {})
 }
 
 function PageHeader({

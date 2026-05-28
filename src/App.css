@@ -73,6 +73,7 @@
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   color: #0f172a;
+  cursor: pointer;
   display: inline-flex;
   font-weight: 600;
   padding: 10px 14px;
@@ -83,6 +84,11 @@
   background: #2563eb;
   border-color: #2563eb;
   color: #ffffff;
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .page-header {
@@ -110,6 +116,10 @@
 
 .card:hover {
   border-color: #94a3b8;
+}
+
+.card.disabled {
+  opacity: 0.72;
 }
 
 .card h2 {
@@ -161,14 +171,25 @@
   white-space: pre-wrap;
 }
 
-.architecture-list {
+.architecture-diagram {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
-  display: grid;
-  gap: 8px;
   margin: 0;
-  padding: 20px 20px 20px 42px;
+  min-height: 160px;
+  overflow-x: auto;
+  padding: 20px;
+}
+
+.architecture-diagram:empty::before {
+  color: #64748b;
+  content: '아키텍처 다이어그램을 렌더링하는 중입니다.';
+}
+
+.architecture-diagram svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
 }
 
 .option-list {
@@ -183,9 +204,26 @@
   padding: 18px;
 }
 
+.option-card.selectable {
+  cursor: pointer;
+  display: grid;
+  gap: 8px 12px;
+  grid-template-columns: auto 1fr;
+}
+
+.option-card.selectable input {
+  margin-top: 3px;
+}
+
+.option-card.selectable h3,
+.option-card.selectable p,
+.option-card.selectable .score-list {
+  grid-column: 2;
+}
+
 .option-card h3 {
   font-size: 17px;
-  margin: 0 0 8px;
+  margin: 0;
 }
 
 .muted {
@@ -219,6 +257,107 @@
   background: #fef2f2;
   border-color: #fecaca;
   color: #991b1b;
+}
+
+.error-text {
+  color: #991b1b;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+.simulate-button {
+  margin-top: 16px;
+}
+
+.result-section {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-top: 32px;
+  padding: 22px;
+}
+
+.result-header {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.result-header h2 {
+  font-size: 22px;
+  margin: 0;
+}
+
+.result-badge {
+  background: #f1f5f9;
+  border-radius: 999px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.result-badge.good {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.result-badge.partial {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.result-badge.risky,
+.result-badge.wrong {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.score-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.score-list div {
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.score-list dt {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.score-list dd {
+  color: #0f172a;
+  font-weight: 700;
+  margin: 0;
+}
+
+.feedback-list {
+  margin-top: 20px;
+}
+
+.feedback-list h3 {
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+
+.feedback-list ul {
+  color: #475569;
+  line-height: 1.7;
+  margin: 0;
+  padding-left: 20px;
 }
 
 @media (max-width: 640px) {
