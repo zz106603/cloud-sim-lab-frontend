@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   Link,
   NavLink,
@@ -6,8 +6,20 @@ import {
   Routes,
   useParams,
 } from 'react-router-dom'
+import {
+  Background,
+  Controls,
+  Handle,
+  MarkerType,
+  Position,
+  ReactFlow,
+  type Edge,
+  type Node,
+  type NodeProps,
+} from '@xyflow/react'
 import mermaid from 'mermaid'
 import {
+  type ArchitectureGraph,
   fetchDocument,
   fetchDocuments,
   fetchScenario,
@@ -17,6 +29,7 @@ import {
   type ScenarioOption,
   type SimulationResult,
 } from './api'
+import '@xyflow/react/dist/style.css'
 import './App.css'
 
 mermaid.initialize({
@@ -172,7 +185,7 @@ function ScenarioCardContent({ scenario }: { scenario: Scenario }) {
         <span>{scenario.level}</span>
       </div>
       <h2>{scenario.title}</h2>
-      <p>{scenario.problem}</p>
+      <p>{scenario.summary}</p>
     </>
   )
 }
@@ -203,34 +216,40 @@ function ScenarioDetailPage() {
 
       <section className="detail-section">
         <h2>현재 아키텍처</h2>
-        <ArchitectureDiagram nodes={data.initialArchitecture} />
+        <ArchitectureDiagram
+          graph={data.initialArchitectureGraph}
+          nodes={data.initialArchitecture}
+        />
       </section>
 
       <ScenarioSimulationPanel
+        initialGraph={data.initialArchitectureGraph}
         key={data.id}
         options={data.options}
         scenarioId={data.id}
       />
 
-      <RelatedLinks ids={data.relatedDocumentIds} basePath="/docs" title="관련 문서" />
+      <RelatedLinks ids={data.relatedLearningDocuments} basePath="/docs" title="관련 문서" />
     </article>
   )
 }
 
 function ScenarioSimulationPanel({
+  initialGraph,
   scenarioId,
   options,
 }: {
+  initialGraph?: ArchitectureGraph
   scenarioId: string
   options: ScenarioOption[]
 }) {
-  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
+  const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null)
   const [simulationLoading, setSimulationLoading] = useState(false)
   const [simulationError, setSimulationError] = useState<string | null>(null)
 
   function toggleOption(optionId: string) {
-    setSelectedOptionIds((current) =>
+    setSelectedOptions((current) =>
       current.includes(optionId)
         ? current.filter((id) => id !== optionId)
         : [...current, optionId],
@@ -238,12 +257,12 @@ function ScenarioSimulationPanel({
   }
 
   async function handleSimulationSubmit() {
-    if (selectedOptionIds.length === 0) return
+    if (selectedOptions.length === 0) return
 
     try {
       setSimulationLoading(true)
       setSimulationError(null)
-      setSimulationResult(await simulateScenario(scenarioId, selectedOptionIds))
+      setSimulationResult(await simulateScenario(scenarioId, selectedOptions))
     } catch (err) {
       setSimulationError(
         err instanceof Error ? err.message : '시뮬레이션 실행 중 오류가 발생했습니다.',
@@ -261,12 +280,12 @@ function ScenarioSimulationPanel({
           {options.map((option) => (
             <label className="option-card selectable" key={option.id}>
               <input
-                checked={selectedOptionIds.includes(option.id)}
+                checked={selectedOptions.includes(option.id)}
                 disabled={simulationLoading}
                 onChange={() => toggleOption(option.id)}
                 type="checkbox"
               />
-              <h3>{option.label}</h3>
+              <h3>{option.name}</h3>
               <p>{option.description}</p>
               <ScoreList scores={option.effects} />
               {option.feedback && <p className="muted">{option.feedback}</p>}
@@ -275,7 +294,7 @@ function ScenarioSimulationPanel({
         </div>
         <button
           className="button primary simulate-button"
-          disabled={selectedOptionIds.length === 0 || simulationLoading}
+          disabled={selectedOptions.length === 0 || simulationLoading}
           onClick={handleSimulationSubmit}
           type="button"
         >
@@ -286,9 +305,10 @@ function ScenarioSimulationPanel({
 
       {simulationResult && (
         <SimulationResultSection
+          initialGraph={initialGraph}
           result={simulationResult}
           selectedOptions={options.filter((option) =>
-            simulationResult.selectedOptionIds.includes(option.id),
+            simulationResult.selectedOptions.includes(option.id),
           )}
         />
       )}
@@ -297,14 +317,20 @@ function ScenarioSimulationPanel({
 }
 
 function SimulationResultSection({
+  initialGraph,
   result,
   selectedOptions,
 }: {
+  initialGraph?: ArchitectureGraph
   result: SimulationResult
   selectedOptions: ScenarioOption[]
 }) {
   const resultScores =
     Object.keys(result.effects).length > 0 ? result.effects : mergeOptionEffects(selectedOptions)
+  const highlightedNodeIds = useMemo(
+    () => findAddedNodeIds(initialGraph, result.finalArchitectureGraph),
+    [initialGraph, result.finalArchitectureGraph],
+  )
 
   return (
     <section className="result-section">
@@ -318,11 +344,11 @@ function SimulationResultSection({
       {result.summary && <p>{result.summary}</p>}
       <ScoreList scores={resultScores} />
 
-      {result.detailFeedback.length > 0 && (
+      {result.detail.length > 0 && (
         <div className="feedback-list">
           <h3>피드백</h3>
           <ul>
-            {result.detailFeedback.map((feedback) => (
+            {result.detail.map((feedback) => (
               <li key={feedback}>{feedback}</li>
             ))}
           </ul>
@@ -331,11 +357,15 @@ function SimulationResultSection({
 
       <div className="feedback-list">
         <h3>최종 아키텍처</h3>
-        <ArchitectureDiagram nodes={result.finalArchitecture} />
+        <ArchitectureDiagram
+          graph={result.finalArchitectureGraph}
+          highlightedNodeIds={highlightedNodeIds}
+          nodes={result.finalArchitecture}
+        />
       </div>
 
       <RelatedLinks
-        ids={result.relatedDocumentIds}
+        ids={result.relatedLearningDocuments}
         basePath="/docs"
         title="추천 학습 문서"
       />
@@ -343,7 +373,65 @@ function SimulationResultSection({
   )
 }
 
-function ArchitectureDiagram({ nodes }: { nodes: string[] }) {
+function ArchitectureDiagram({
+  graph,
+  highlightedNodeIds = [],
+  nodes,
+}: {
+  graph?: ArchitectureGraph
+  highlightedNodeIds?: string[]
+  nodes: string[]
+}) {
+  if (graph) {
+    return <ArchitectureFlow graph={graph} highlightedNodeIds={highlightedNodeIds} />
+  }
+
+  return <MermaidArchitectureDiagram nodes={nodes} />
+}
+
+function ArchitectureFlow({
+  graph,
+  highlightedNodeIds,
+}: {
+  graph: ArchitectureGraph
+  highlightedNodeIds: string[]
+}) {
+  const highlightedNodeSet = useMemo(() => new Set(highlightedNodeIds), [highlightedNodeIds])
+  const flowNodes = useMemo(
+    () => toFlowNodes(graph, highlightedNodeSet),
+    [graph, highlightedNodeSet],
+  )
+  const flowEdges = useMemo(() => toFlowEdges(graph), [graph])
+
+  if (graph.nodes.length === 0) {
+    return <StatusMessage message="아키텍처 정보가 없습니다." />
+  }
+
+  return (
+    <div aria-label="아키텍처 다이어그램" className="architecture-diagram architecture-flow">
+      <ReactFlow
+        colorMode="light"
+        edges={flowEdges}
+        fitView
+        fitViewOptions={{ padding: 0.18 }}
+        maxZoom={1.4}
+        minZoom={0.45}
+        nodes={flowNodes}
+        nodeTypes={architectureNodeTypes}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        panOnScroll
+        preventScrolling={false}
+        proOptions={{ hideAttribution: true }}
+      >
+        <Background color="#cbd5e1" gap={24} />
+        <Controls showInteractive={false} />
+      </ReactFlow>
+    </div>
+  )
+}
+
+function MermaidArchitectureDiagram({ nodes }: { nodes: string[] }) {
   const [svg, setSvg] = useState('')
   const [error, setError] = useState<string | null>(null)
   const reactId = useId()
@@ -402,6 +490,135 @@ function ArchitectureDiagram({ nodes }: { nodes: string[] }) {
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   )
+}
+
+type ArchitectureNodeData = {
+  description?: string
+  highlighted: boolean
+  label: string
+  resourceType: string
+}
+
+const ArchitectureFlowNode = memo(function ArchitectureFlowNode({
+  data,
+}: NodeProps<Node<ArchitectureNodeData>>) {
+  return (
+    <div
+      className={`architecture-flow-node type-${normalizeTypeClass(data.resourceType)}${
+        data.highlighted ? ' highlighted' : ''
+      }`}
+    >
+      <Handle className="architecture-handle" position={Position.Left} type="target" />
+      <div className="architecture-node-type">{formatResourceType(data.resourceType)}</div>
+      <div className="architecture-node-label">{data.label}</div>
+      {data.description && <p>{data.description}</p>}
+      <Handle className="architecture-handle" position={Position.Right} type="source" />
+    </div>
+  )
+})
+
+const architectureNodeTypes = {
+  architecture: ArchitectureFlowNode,
+}
+
+function toFlowNodes(
+  graph: ArchitectureGraph,
+  highlightedNodeIds: Set<string>,
+): Node<ArchitectureNodeData>[] {
+  const levels = getNodeLevels(graph)
+  const rowsByLevel = new Map<number, number>()
+
+  return graph.nodes.map((graphNode) => {
+    const level = levels.get(graphNode.id) ?? 0
+    const row = rowsByLevel.get(level) ?? 0
+    rowsByLevel.set(level, row + 1)
+
+    return {
+      id: graphNode.id,
+      data: {
+        description: graphNode.description,
+        highlighted: highlightedNodeIds.has(graphNode.id),
+        label: graphNode.label,
+        resourceType: graphNode.type,
+      },
+      position: {
+        x: level * 260,
+        y: row * 150,
+      },
+      type: 'architecture',
+    }
+  })
+}
+
+function toFlowEdges(graph: ArchitectureGraph): Edge[] {
+  return graph.edges.map((edge, index) => ({
+    id: `${edge.source}-${edge.target}-${index}`,
+    label: edge.label,
+    markerEnd: {
+      color: '#64748b',
+      type: MarkerType.ArrowClosed,
+    },
+    source: edge.source,
+    style: {
+      stroke: '#64748b',
+      strokeWidth: 1.8,
+    },
+    target: edge.target,
+    type: 'smoothstep',
+  }))
+}
+
+function getNodeLevels(graph: ArchitectureGraph) {
+  const levels = new Map<string, number>()
+  const incomingCount = new Map(graph.nodes.map((node) => [node.id, 0]))
+  const outgoingEdges = new Map<string, string[]>()
+
+  graph.edges.forEach((edge) => {
+    incomingCount.set(edge.target, (incomingCount.get(edge.target) ?? 0) + 1)
+    outgoingEdges.set(edge.source, [...(outgoingEdges.get(edge.source) ?? []), edge.target])
+  })
+
+  const queue = graph.nodes
+    .filter((node) => (incomingCount.get(node.id) ?? 0) === 0)
+    .map((node) => node.id)
+
+  graph.nodes.forEach((node) => levels.set(node.id, 0))
+
+  for (let cursor = 0; cursor < queue.length; cursor += 1) {
+    const nodeId = queue[cursor]
+    const nextLevel = (levels.get(nodeId) ?? 0) + 1
+
+    outgoingEdges.get(nodeId)?.forEach((targetId) => {
+      if (nextLevel > (levels.get(targetId) ?? 0)) {
+        levels.set(targetId, nextLevel)
+      }
+
+      incomingCount.set(targetId, (incomingCount.get(targetId) ?? 1) - 1)
+      if (incomingCount.get(targetId) === 0) queue.push(targetId)
+    })
+  }
+
+  return levels
+}
+
+function findAddedNodeIds(
+  initialGraph: ArchitectureGraph | undefined,
+  finalGraph: ArchitectureGraph | undefined,
+) {
+  if (!initialGraph || !finalGraph) return []
+
+  const initialNodeIds = new Set(initialGraph.nodes.map((node) => node.id))
+  return finalGraph.nodes
+    .filter((node) => !initialNodeIds.has(node.id))
+    .map((node) => node.id)
+}
+
+function normalizeTypeClass(type: string) {
+  return type.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+}
+
+function formatResourceType(type: string) {
+  return type.replace(/_/g, ' ')
 }
 
 function architectureToMermaid(nodes: string[]) {

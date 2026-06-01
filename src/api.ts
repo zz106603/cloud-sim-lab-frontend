@@ -13,7 +13,7 @@ export type LearningDocument = {
 
 export type ScenarioOption = {
   id: string
-  label: string
+  name: string
   description: string
   effects: ScoreMap
   feedback?: string
@@ -25,24 +25,45 @@ export type Scenario = {
   category: string
   level: string
   problem: string
+  summary: string
   initialArchitecture: string[]
+  initialArchitectureGraph?: ArchitectureGraph
   options: ScenarioOption[]
   recommendedOptionIds: string[]
-  relatedDocumentIds: string[]
+  relatedLearningDocuments: string[]
 }
 
 export type SimulationResult = {
   scenarioId: string
-  selectedOptionIds: string[]
+  selectedOptions: string[]
   resultType: 'GOOD' | 'PARTIAL' | 'RISKY' | 'WRONG' | string
   summary: string
-  detailFeedback: string[]
+  detail: string[]
   effects: ScoreMap
   finalArchitecture: string[]
-  relatedDocumentIds: string[]
+  finalArchitectureGraph?: ArchitectureGraph
+  relatedLearningDocuments: string[]
 }
 
 export type ScoreMap = Record<string, number>
+
+export type ArchitectureGraph = {
+  nodes: ArchitectureNode[]
+  edges: ArchitectureEdge[]
+}
+
+export type ArchitectureNode = {
+  id: string
+  label: string
+  type: string
+  description?: string
+}
+
+export type ArchitectureEdge = {
+  source: string
+  target: string
+  label?: string
+}
 
 export async function fetchDocuments() {
   const data = await request<unknown>('/docs')
@@ -132,10 +153,12 @@ function toScenario(data: unknown): Scenario {
     category: toText(item.category),
     level: toText(item.level),
     problem: toText(item.problem),
+    summary: toText(item.summary) || toText(item.problem),
     initialArchitecture: toTextList(item.initialArchitecture),
+    initialArchitectureGraph: toArchitectureGraph(item.initialArchitectureGraph),
     options: extractList(item.options).map(toScenarioOption),
     recommendedOptionIds: toTextList(item.recommendedOptionIds),
-    relatedDocumentIds: toTextList(item.relatedDocumentIds),
+    relatedLearningDocuments: toDocumentIdList(item.relatedLearningDocuments ?? item.relatedDocumentIds),
   }
 }
 
@@ -144,7 +167,7 @@ function toScenarioOption(data: unknown): ScenarioOption {
 
   return {
     id: toText(item.id),
-    label: toText(item.label),
+    name: toText(item.name) || toText(item.label),
     description: toText(item.description),
     effects: toScoreMap(item.effects),
     feedback: toOptionalText(item.feedback),
@@ -156,13 +179,14 @@ function toSimulationResult(data: unknown): SimulationResult {
 
   return {
     scenarioId: toText(item.scenarioId) || toText(item.id),
-    selectedOptionIds: toTextList(item.selectedOptionIds),
+    selectedOptions: toIdList(item.selectedOptions ?? item.selectedOptionIds),
     resultType: toText(item.resultType),
     summary: toText(item.summary),
-    detailFeedback: toFeedbackList(item.detailFeedback),
+    detail: toFeedbackList(item.detail ?? item.detailFeedback),
     effects: toScoreMap(item.effects ?? item.scores ?? item.scoreEffects),
     finalArchitecture: toTextList(item.finalArchitecture),
-    relatedDocumentIds: toTextList(item.relatedDocumentIds),
+    finalArchitectureGraph: toArchitectureGraph(item.finalArchitectureGraph),
+    relatedLearningDocuments: toDocumentIdList(item.relatedLearningDocuments ?? item.relatedDocumentIds),
   }
 }
 
@@ -193,6 +217,60 @@ function toOptionalText(value: unknown) {
 
 function toTextList(value: unknown) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+}
+
+function toIdList(value: unknown) {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map((item) => (typeof item === 'string' || typeof item === 'number' ? toText(item) : toText(asRecord(item).id)))
+    .filter(Boolean)
+}
+
+function toDocumentIdList(value: unknown) {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map((item) => (typeof item === 'string' ? item : toText(asRecord(item).id)))
+    .filter(Boolean)
+}
+
+function toArchitectureGraph(value: unknown): ArchitectureGraph | undefined {
+  if (!isRecord(value)) return undefined
+
+  const nodes = extractList(value.nodes).map(toArchitectureNode).filter(isValidArchitectureNode)
+  const nodeIds = new Set(nodes.map((node) => node.id))
+  const edges = extractList(value.edges)
+    .map(toArchitectureEdge)
+    .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
+
+  return nodes.length > 0 ? { nodes, edges } : undefined
+}
+
+function toArchitectureNode(value: unknown): ArchitectureNode {
+  const item = asRecord(value)
+  const id = toText(item.id)
+
+  return {
+    id,
+    label: toText(item.label) || id,
+    type: toText(item.type) || 'UNKNOWN',
+    description: toOptionalText(item.description),
+  }
+}
+
+function toArchitectureEdge(value: unknown): ArchitectureEdge {
+  const item = asRecord(value)
+
+  return {
+    source: toText(item.source),
+    target: toText(item.target),
+    label: toOptionalText(item.label),
+  }
+}
+
+function isValidArchitectureNode(node: ArchitectureNode) {
+  return node.id.length > 0 && node.label.length > 0
 }
 
 function toFeedbackList(value: unknown) {
