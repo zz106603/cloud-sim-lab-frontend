@@ -9,6 +9,16 @@ export type LearningDocument = {
   orderIndex?: number
   summary?: string
   relatedDocumentIds: string[]
+  relatedScenarios: RelatedScenario[]
+}
+
+export type RelatedScenario = {
+  id: string
+  title: string
+  category: string
+  level: string
+  summary?: string
+  reason?: string
 }
 
 export type ScenarioOption = {
@@ -30,7 +40,7 @@ export type Scenario = {
   initialArchitectureGraph?: ArchitectureGraph
   options: ScenarioOption[]
   recommendedOptionIds: string[]
-  relatedLearningDocuments: string[]
+  relatedLearningDocuments: RelatedLearningDocument[]
 }
 
 export type SimulationResult = {
@@ -39,10 +49,28 @@ export type SimulationResult = {
   resultType: 'GOOD' | 'PARTIAL' | 'RISKY' | 'WRONG' | string
   summary: string
   detail: string[]
+  review: SimulationReview
   effects: ScoreMap
   finalArchitecture: string[]
   finalArchitectureGraph?: ArchitectureGraph
-  relatedLearningDocuments: string[]
+  relatedLearningDocuments: RelatedLearningDocument[]
+}
+
+export type SimulationReview = {
+  reason?: string
+  strengths: string[]
+  limitations: string[]
+  missedTradeOffs: string[]
+  nextStep?: string
+}
+
+export type RelatedLearningDocument = {
+  id: string
+  title: string
+  category: string
+  level: string
+  summary?: string
+  reviewReason?: string
 }
 
 export type ScoreMap = Record<string, number>
@@ -140,6 +168,7 @@ function toLearningDocument(data: unknown): LearningDocument {
     orderIndex: typeof item.orderIndex === 'number' ? item.orderIndex : undefined,
     summary: toOptionalText(item.summary),
     relatedDocumentIds: toTextList(item.relatedDocumentIds),
+    relatedScenarios: extractList(item.relatedScenarios).map(toRelatedScenario),
   }
 }
 
@@ -158,7 +187,22 @@ function toScenario(data: unknown): Scenario {
     initialArchitectureGraph: toArchitectureGraph(item.initialArchitectureGraph),
     options: extractList(item.options).map(toScenarioOption),
     recommendedOptionIds: toTextList(item.recommendedOptionIds),
-    relatedLearningDocuments: toDocumentIdList(item.relatedLearningDocuments ?? item.relatedDocumentIds),
+    relatedLearningDocuments: toRelatedLearningDocuments(
+      item.relatedLearningDocuments ?? item.relatedDocumentIds,
+    ),
+  }
+}
+
+function toRelatedScenario(data: unknown): RelatedScenario {
+  const item = asRecord(data)
+
+  return {
+    id: toText(item.id),
+    title: toText(item.title),
+    category: toText(item.category),
+    level: toText(item.level),
+    summary: toOptionalText(item.summary),
+    reason: toOptionalText(item.reason),
   }
 }
 
@@ -183,10 +227,13 @@ function toSimulationResult(data: unknown): SimulationResult {
     resultType: toText(item.resultType),
     summary: toText(item.summary),
     detail: toFeedbackList(item.detail ?? item.detailFeedback),
+    review: toSimulationReview(item.review ?? item),
     effects: toScoreMap(item.effects ?? item.scores ?? item.scoreEffects),
     finalArchitecture: toTextList(item.finalArchitecture),
     finalArchitectureGraph: toArchitectureGraph(item.finalArchitectureGraph),
-    relatedLearningDocuments: toDocumentIdList(item.relatedLearningDocuments ?? item.relatedDocumentIds),
+    relatedLearningDocuments: toRelatedLearningDocuments(
+      item.relatedLearningDocuments ?? item.relatedDocumentIds,
+    ),
   }
 }
 
@@ -227,12 +274,48 @@ function toIdList(value: unknown) {
     .filter(Boolean)
 }
 
-function toDocumentIdList(value: unknown) {
+function toRelatedLearningDocuments(value: unknown): RelatedLearningDocument[] {
   if (!Array.isArray(value)) return []
 
   return value
-    .map((item) => (typeof item === 'string' ? item : toText(asRecord(item).id)))
-    .filter(Boolean)
+    .map(toRelatedLearningDocument)
+    .filter((document) => document.id.length > 0)
+}
+
+function toRelatedLearningDocument(value: unknown): RelatedLearningDocument {
+  if (typeof value === 'string' || typeof value === 'number') {
+    const id = toText(value)
+    return {
+      id,
+      title: id,
+      category: '',
+      level: '',
+    }
+  }
+
+  const item = asRecord(value)
+  const id = toText(item.id)
+
+  return {
+    id,
+    title: toText(item.title) || id,
+    category: toText(item.category),
+    level: toText(item.level),
+    summary: toOptionalText(item.summary),
+    reviewReason: toOptionalText(item.reviewReason),
+  }
+}
+
+function toSimulationReview(value: unknown): SimulationReview {
+  const item = asRecord(value)
+
+  return {
+    reason: toOptionalText(item.reason),
+    strengths: toTextList(item.strengths),
+    limitations: toTextList(item.limitations),
+    missedTradeOffs: toTextList(item.missedTradeOffs),
+    nextStep: toOptionalText(item.nextStep),
+  }
 }
 
 function toArchitectureGraph(value: unknown): ArchitectureGraph | undefined {

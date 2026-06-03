@@ -122,7 +122,8 @@
   opacity: 0.72;
 }
 
-.card h2 {
+.card h2,
+.compact-card h3 {
   font-size: 20px;
   margin: 10px 0 8px;
 }
@@ -132,6 +133,17 @@
   color: #475569;
   line-height: 1.7;
   margin: 0;
+}
+
+.compact-card h3 {
+  font-size: 18px;
+}
+
+.reason-text {
+  border-left: 3px solid #bfdbfe;
+  color: #475569;
+  margin-top: 12px !important;
+  padding-left: 10px;
 }
 
 .meta-row {
@@ -410,6 +422,48 @@
   color: #991b1b;
 }
 
+.review-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 20px;
+}
+
+.review-block {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.review-block h3,
+.architecture-comparison h3 {
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+
+.review-block p,
+.review-block ul {
+  color: #475569;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.review-block ul {
+  padding-left: 20px;
+}
+
+.architecture-comparison {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 24px;
+}
+
+.architecture-comparison .architecture-flow {
+  height: 300px;
+}
+
 .score-list {
   display: flex;
   flex-wrap: wrap;
@@ -470,5 +524,10 @@
 
   .architecture-flow {
     height: 420px;
+  }
+
+  .review-grid,
+  .architecture-comparison {
+    grid-template-columns: 1fr;
   }
 }

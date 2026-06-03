@@ -1,4 +1,13 @@
-import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import {
+  memo,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import {
   Link,
   NavLink,
@@ -25,6 +34,8 @@ import {
   fetchScenario,
   fetchScenarios,
   simulateScenario,
+  type RelatedLearningDocument,
+  type RelatedScenario,
   type Scenario,
   type ScenarioOption,
   type SimulationResult,
@@ -77,7 +88,8 @@ function HomePage() {
       <p className="eyebrow">실무형 클라우드 아키텍처 학습</p>
       <h1>AWS 운영 상황을 문서와 시나리오로 학습합니다.</h1>
       <p className="lead">
-        Step 6 범위에서는 학습 문서와 시나리오를 탐색하는 기본 화면만 제공합니다.
+        개념 문서를 읽고 관련 시나리오에서 판단을 연습한 뒤, 결과와 복습 문서로
+        놓친 trade-off를 확인합니다.
       </p>
       <div className="actions">
         <Link className="button primary" to="/docs">
@@ -140,6 +152,7 @@ function DocumentDetailPage() {
       </Link>
       <PageHeader title={data.title} description={`${data.category} · ${data.level}`} />
       <pre className="markdown-body">{data.content}</pre>
+      <RelatedScenarioCards scenarios={data.relatedScenarios} />
       <RelatedLinks ids={data.relatedDocumentIds} basePath="/docs" title="관련 문서" />
     </article>
   )
@@ -222,24 +235,30 @@ function ScenarioDetailPage() {
         />
       </section>
 
+      <RelatedLearningDocumentCards
+        documents={data.relatedLearningDocuments}
+        title="관련 학습 문서"
+      />
+
       <ScenarioSimulationPanel
         initialGraph={data.initialArchitectureGraph}
+        initialNodes={data.initialArchitecture}
         key={data.id}
         options={data.options}
         scenarioId={data.id}
       />
-
-      <RelatedLinks ids={data.relatedLearningDocuments} basePath="/docs" title="관련 문서" />
     </article>
   )
 }
 
 function ScenarioSimulationPanel({
   initialGraph,
+  initialNodes,
   scenarioId,
   options,
 }: {
   initialGraph?: ArchitectureGraph
+  initialNodes: string[]
   scenarioId: string
   options: ScenarioOption[]
 }) {
@@ -306,6 +325,7 @@ function ScenarioSimulationPanel({
       {simulationResult && (
         <SimulationResultSection
           initialGraph={initialGraph}
+          initialNodes={initialNodes}
           result={simulationResult}
           selectedOptions={options.filter((option) =>
             simulationResult.selectedOptions.includes(option.id),
@@ -318,10 +338,12 @@ function ScenarioSimulationPanel({
 
 function SimulationResultSection({
   initialGraph,
+  initialNodes,
   result,
   selectedOptions,
 }: {
   initialGraph?: ArchitectureGraph
+  initialNodes: string[]
   result: SimulationResult
   selectedOptions: ScenarioOption[]
 }) {
@@ -344,31 +366,135 @@ function SimulationResultSection({
       {result.summary && <p>{result.summary}</p>}
       <ScoreList scores={resultScores} />
 
-      {result.detail.length > 0 && (
-        <div className="feedback-list">
-          <h3>피드백</h3>
-          <ul>
-            {result.detail.map((feedback) => (
-              <li key={feedback}>{feedback}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <ResultReview result={result} />
 
-      <div className="feedback-list">
-        <h3>최종 아키텍처</h3>
-        <ArchitectureDiagram
-          graph={result.finalArchitectureGraph}
-          highlightedNodeIds={highlightedNodeIds}
-          nodes={result.finalArchitecture}
-        />
+      <div className="architecture-comparison">
+        <div>
+          <h3>초기 아키텍처</h3>
+          <ArchitectureDiagram graph={initialGraph} nodes={initialNodes} />
+        </div>
+        <div>
+          <h3>최종 아키텍처</h3>
+          <ArchitectureDiagram
+            graph={result.finalArchitectureGraph}
+            highlightedNodeIds={highlightedNodeIds}
+            nodes={result.finalArchitecture}
+          />
+        </div>
       </div>
 
-      <RelatedLinks
-        ids={result.relatedLearningDocuments}
-        basePath="/docs"
-        title="추천 학습 문서"
+      <RelatedLearningDocumentCards
+        documents={result.relatedLearningDocuments}
+        title="복습 학습 문서"
       />
+    </section>
+  )
+}
+
+function ResultReview({ result }: { result: SimulationResult }) {
+  const { review } = result
+  const hasReview =
+    review.reason ||
+    review.strengths.length > 0 ||
+    review.limitations.length > 0 ||
+    review.missedTradeOffs.length > 0 ||
+    review.nextStep
+
+  if (!hasReview && result.detail.length === 0) return null
+
+  return (
+    <div className="review-grid">
+      {review.reason && (
+        <ReviewBlock title="판단 이유">
+          <p>{review.reason}</p>
+        </ReviewBlock>
+      )}
+      <ReviewListBlock items={review.strengths} title="장점" />
+      <ReviewListBlock items={review.limitations} title="한계" />
+      <ReviewListBlock items={review.missedTradeOffs} title="놓친 trade-off" />
+      {review.nextStep && (
+        <ReviewBlock title="다음 학습">
+          <p>{review.nextStep}</p>
+        </ReviewBlock>
+      )}
+      {!hasReview && result.detail.length > 0 && (
+        <ReviewListBlock items={result.detail} title="피드백" />
+      )}
+    </div>
+  )
+}
+
+function ReviewListBlock({ items, title }: { items: string[]; title: string }) {
+  if (items.length === 0) return null
+
+  return (
+    <ReviewBlock title={title}>
+      <ul>
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </ReviewBlock>
+  )
+}
+
+function ReviewBlock({ children, title }: { children: ReactNode; title: string }) {
+  return (
+    <section className="review-block">
+      <h3>{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+function RelatedScenarioCards({ scenarios }: { scenarios: RelatedScenario[] }) {
+  if (scenarios.length === 0) return null
+
+  return (
+    <section className="detail-section">
+      <h2>관련 시나리오</h2>
+      <div className="card-list">
+        {scenarios.map((scenario) => (
+          <Link className="card compact-card" key={scenario.id} to={`/scenarios/${scenario.id}`}>
+            <div className="meta-row">
+              <span>{scenario.category}</span>
+              <span>{scenario.level}</span>
+            </div>
+            <h3>{scenario.title}</h3>
+            {scenario.summary && <p>{scenario.summary}</p>}
+            {scenario.reason && <p className="reason-text">{scenario.reason}</p>}
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function RelatedLearningDocumentCards({
+  documents,
+  title,
+}: {
+  documents: RelatedLearningDocument[]
+  title: string
+}) {
+  if (documents.length === 0) return null
+
+  return (
+    <section className="detail-section">
+      <h2>{title}</h2>
+      <div className="card-list">
+        {documents.map((document) => (
+          <Link className="card compact-card" key={document.id} to={`/docs/${document.id}`}>
+            <div className="meta-row">
+              {document.category && <span>{document.category}</span>}
+              {document.level && <span>{document.level}</span>}
+            </div>
+            <h3>{document.title}</h3>
+            {document.summary && <p>{document.summary}</p>}
+            {document.reviewReason && <p className="reason-text">{document.reviewReason}</p>}
+          </Link>
+        ))}
+      </div>
     </section>
   )
 }
