@@ -15,6 +15,8 @@ import {
   Routes,
   useParams,
 } from 'react-router-dom'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   Background,
   Controls,
@@ -151,7 +153,11 @@ function DocumentDetailPage() {
         ← 학습 문서 목록
       </Link>
       <PageHeader title={data.title} description={`${data.category} · ${data.level}`} />
-      <pre className="markdown-body">{data.content}</pre>
+      <div className="markdown-body">
+        <Markdown remarkPlugins={[remarkGfm]} skipHtml>
+          {data.content}
+        </Markdown>
+      </div>
       <RelatedScenarioCards scenarios={data.relatedScenarios} />
       <RelatedLinks ids={data.relatedDocumentIds} basePath="/docs" title="관련 문서" />
     </article>
