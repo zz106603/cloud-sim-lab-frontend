@@ -93,6 +93,81 @@ export type ArchitectureEdge = {
   label?: string
 }
 
+export type UserArchitectureSummary = {
+  architectureId: string
+  title: string
+  description: string
+  createdAt: string
+  updatedAt: string
+  nodeCount: number
+  connectionCount: number
+}
+
+export type UserArchitectureDetail = {
+  architectureId: string
+  title: string
+  description: string
+  createdAt: string
+  updatedAt: string
+  nodes: UserArchitectureNode[]
+  connections: UserArchitectureConnection[]
+}
+
+export type UserArchitectureNode = {
+  id: string
+  resourceType: string
+  displayName: string
+}
+
+export type UserArchitectureConnection = {
+  id: string
+  sourceNodeId: string
+  targetNodeId: string
+  connectionType: string
+}
+
+export type UserArchitectureCatalog = {
+  resourceTypes: UserArchitectureResourceType[]
+  connectionTypes: UserArchitectureConnectionType[]
+}
+
+export type UserArchitectureResourceType = {
+  key: string
+  displayName: string
+  description: string
+  visualizationCategory: string
+  learningPurpose: string
+}
+
+export type UserArchitectureConnectionType = {
+  key: string
+  displayName: string
+  meaning: string
+}
+
+export type UserArchitectureSaveRequest = {
+  title: string
+  description: string
+  nodes: UserArchitectureNode[]
+  connections: UserArchitectureConnection[]
+}
+
+export type UserArchitectureValidationResult = {
+  valid: boolean
+  errors: UserArchitectureValidationIssue[]
+  warnings: UserArchitectureValidationIssue[]
+  guidance: UserArchitectureValidationIssue[]
+}
+
+export type UserArchitectureValidationIssue = {
+  severity: string
+  code: string
+  targetType: string
+  targetId?: string
+  message: string
+  reason: string
+}
+
 export async function fetchDocuments() {
   const data = await request<unknown>('/docs')
   return extractList(data).map(toLearningDocument)
@@ -131,6 +206,55 @@ export async function simulateScenario(
   return toSimulationResult(data)
 }
 
+export async function fetchUserArchitectureCatalog() {
+  const data = await request<unknown>('/user-architectures/catalog')
+  return toUserArchitectureCatalog(data)
+}
+
+export async function fetchUserArchitectures() {
+  const data = await request<unknown>('/user-architectures')
+  return extractList(data).map(toUserArchitectureSummary)
+}
+
+export async function fetchUserArchitecture(architectureId: string) {
+  const data = await request<unknown>(
+    `/user-architectures/${encodeURIComponent(architectureId)}`,
+  )
+  return toUserArchitectureDetail(data)
+}
+
+export async function createUserArchitecture(payload: UserArchitectureSaveRequest) {
+  const data = await request<unknown>('/user-architectures', jsonRequest('POST', payload))
+  return toUserArchitectureDetail(data)
+}
+
+export async function updateUserArchitecture(
+  architectureId: string,
+  payload: UserArchitectureSaveRequest,
+) {
+  const data = await request<unknown>(
+    `/user-architectures/${encodeURIComponent(architectureId)}`,
+    jsonRequest('PUT', payload),
+  )
+  return toUserArchitectureDetail(data)
+}
+
+export async function deleteUserArchitecture(architectureId: string) {
+  await requestVoid(`/user-architectures/${encodeURIComponent(architectureId)}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function validateUserArchitecture(
+  payload: Pick<UserArchitectureSaveRequest, 'nodes' | 'connections'>,
+) {
+  const data = await request<unknown>(
+    '/user-architectures/validate',
+    jsonRequest('POST', payload),
+  )
+  return toUserArchitectureValidationResult(data)
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, init)
 
@@ -139,6 +263,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return response.json() as Promise<T>
+}
+
+async function requestVoid(path: string, init?: RequestInit) {
+  const response = await fetch(`${API_BASE_URL}${path}`, init)
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response))
+  }
+}
+
+function jsonRequest(method: 'POST' | 'PUT', payload: unknown): RequestInit {
+  return {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  }
 }
 
 function extractList(data: unknown): unknown[] {
@@ -237,6 +379,115 @@ function toSimulationResult(data: unknown): SimulationResult {
   }
 }
 
+function toUserArchitectureSummary(data: unknown): UserArchitectureSummary {
+  const item = asRecord(data)
+
+  return {
+    architectureId: toText(item.architectureId),
+    title: toText(item.title),
+    description: toText(item.description),
+    createdAt: toText(item.createdAt),
+    updatedAt: toText(item.updatedAt),
+    nodeCount: toNumber(item.nodeCount),
+    connectionCount: toNumber(item.connectionCount),
+  }
+}
+
+function toUserArchitectureDetail(data: unknown): UserArchitectureDetail {
+  const item = asRecord(data)
+
+  return {
+    architectureId: toText(item.architectureId),
+    title: toText(item.title),
+    description: toText(item.description),
+    createdAt: toText(item.createdAt),
+    updatedAt: toText(item.updatedAt),
+    nodes: extractList(item.nodes).map(toUserArchitectureNode).filter((node) => node.id),
+    connections: extractList(item.connections)
+      .map(toUserArchitectureConnection)
+      .filter((connection) => connection.id),
+  }
+}
+
+function toUserArchitectureNode(data: unknown): UserArchitectureNode {
+  const item = asRecord(data)
+  const id = toText(item.id)
+
+  return {
+    id,
+    resourceType: toText(item.resourceType),
+    displayName: toText(item.displayName) || id,
+  }
+}
+
+function toUserArchitectureConnection(data: unknown): UserArchitectureConnection {
+  const item = asRecord(data)
+
+  return {
+    id: toText(item.id),
+    sourceNodeId: toText(item.sourceNodeId),
+    targetNodeId: toText(item.targetNodeId),
+    connectionType: toText(item.connectionType),
+  }
+}
+
+function toUserArchitectureCatalog(data: unknown): UserArchitectureCatalog {
+  const item = asRecord(data)
+
+  return {
+    resourceTypes: extractList(item.resourceTypes).map(toUserArchitectureResourceType),
+    connectionTypes: extractList(item.connectionTypes).map(toUserArchitectureConnectionType),
+  }
+}
+
+function toUserArchitectureResourceType(data: unknown): UserArchitectureResourceType {
+  const item = asRecord(data)
+  const key = toText(item.key)
+
+  return {
+    key,
+    displayName: toText(item.displayName) || key,
+    description: toText(item.description),
+    visualizationCategory: toText(item.visualizationCategory),
+    learningPurpose: toText(item.learningPurpose),
+  }
+}
+
+function toUserArchitectureConnectionType(data: unknown): UserArchitectureConnectionType {
+  const item = asRecord(data)
+  const key = toText(item.key)
+
+  return {
+    key,
+    displayName: toText(item.displayName) || key,
+    meaning: toText(item.meaning),
+  }
+}
+
+function toUserArchitectureValidationResult(data: unknown): UserArchitectureValidationResult {
+  const item = asRecord(data)
+
+  return {
+    valid: item.valid === true,
+    errors: extractList(item.errors).map(toUserArchitectureValidationIssue),
+    warnings: extractList(item.warnings).map(toUserArchitectureValidationIssue),
+    guidance: extractList(item.guidance).map(toUserArchitectureValidationIssue),
+  }
+}
+
+function toUserArchitectureValidationIssue(data: unknown): UserArchitectureValidationIssue {
+  const item = asRecord(data)
+
+  return {
+    severity: toText(item.severity),
+    code: toText(item.code),
+    targetType: toText(item.targetType),
+    targetId: toOptionalText(item.targetId),
+    message: toText(item.message),
+    reason: toText(item.reason),
+  }
+}
+
 async function readErrorMessage(response: Response) {
   const fallback = `API 요청 실패: ${response.status}`
 
@@ -256,6 +507,10 @@ function toText(value: unknown) {
   if (typeof value === 'string') return value.trim()
   if (typeof value === 'number') return String(value)
   return ''
+}
+
+function toNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
 }
 
 function toOptionalText(value: unknown) {
