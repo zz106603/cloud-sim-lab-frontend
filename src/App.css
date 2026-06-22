@@ -132,7 +132,7 @@
 .learning-path {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   margin: 10px 0 28px;
 }
 
@@ -366,7 +366,8 @@
   text-decoration: none;
 }
 
-.filter-bar {
+.filter-bar,
+.discovery-filter-bar {
   align-items: end;
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -379,7 +380,8 @@
   padding: 14px;
 }
 
-.filter-bar label {
+.filter-bar label,
+.discovery-filter-bar label {
   color: #334155;
   display: grid;
   flex: 1 1 180px;
@@ -389,6 +391,8 @@
 }
 
 .filter-bar select,
+.discovery-filter-bar input,
+.discovery-filter-bar select,
 .builder-form input,
 .builder-form textarea,
 .field-label input,
@@ -401,7 +405,8 @@
   padding: 10px 12px;
 }
 
-.filter-bar span {
+.filter-bar span,
+.discovery-filter-bar span {
   color: #64748b;
   font-size: 14px;
   font-weight: 700;
@@ -455,6 +460,12 @@
   margin: 0 0 10px;
 }
 
+.study-prompt-panel p {
+  color: #475569;
+  line-height: 1.7;
+  margin: 0;
+}
+
 .study-prompt-panel ul,
 .question-list {
   color: #475569;
@@ -472,6 +483,88 @@
 .detail-section h2 {
   font-size: 20px;
   margin: 0 0 12px;
+}
+
+.module-list {
+  display: grid;
+  gap: 14px;
+}
+
+.module-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.module-card-heading {
+  display: flex;
+  gap: 12px;
+}
+
+.module-card-heading > span {
+  align-items: center;
+  background: #0f172a;
+  border-radius: 999px;
+  color: #ffffff;
+  display: inline-flex;
+  flex: 0 0 30px;
+  font-size: 13px;
+  font-weight: 800;
+  height: 30px;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.module-card-heading h3 {
+  font-size: 18px;
+  margin: 0 0 6px;
+}
+
+.module-card-heading h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.module-card-heading h3 a:hover {
+  color: #2563eb;
+}
+
+.module-card-heading p {
+  color: #475569;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.module-resource-row {
+  display: grid;
+  gap: 8px;
+}
+
+.module-resource-row strong {
+  color: #334155;
+  font-size: 13px;
+}
+
+.module-overview,
+.module-linked-resources,
+.architecture-practice-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.module-overview .study-prompt-panel {
+  margin-bottom: 0;
+}
+
+.study-prompt-panel ol {
+  color: #475569;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 20px;
 }
 
 .scenario-brief {
@@ -1454,6 +1547,172 @@
   margin: 0;
 }
 
+.failure-impact-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.failure-impact-panel .failure-impact-panel {
+  margin-top: 0;
+}
+
+.failure-impact-panel h3 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.failure-source,
+.failure-impact-group ul {
+  color: #475569;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.failure-impact-group {
+  display: grid;
+  gap: 6px;
+}
+
+.failure-impact-group strong {
+  color: #334155;
+  font-size: 14px;
+}
+
+.remediation-panel {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.remediation-panel h3 {
+  font-size: 17px;
+  margin: 0;
+}
+
+.remediation-panel ul {
+  color: #475569;
+  line-height: 1.7;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.remediation-panel li span {
+  color: #64748b;
+  display: block;
+}
+
+.remediation-group {
+  display: grid;
+  gap: 8px;
+}
+
+.remediation-group strong {
+  color: #334155;
+  font-size: 14px;
+}
+
+.comparison-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 18px;
+  margin-bottom: 22px;
+  padding: 18px;
+}
+
+.comparison-controls,
+.comparison-summary-grid,
+.comparison-change-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.comparison-controls section,
+.comparison-summary-card,
+.comparison-change-group {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.comparison-controls h3,
+.comparison-summary-card h3,
+.comparison-change-group h3,
+.scenario-comparison-result h3 {
+  font-size: 17px;
+  margin: 0 0 10px;
+}
+
+.comparison-form {
+  display: grid;
+  gap: 10px;
+}
+
+.comparison-form label {
+  color: #334155;
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.comparison-summary-card span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.comparison-summary-card p,
+.scenario-comparison-result p,
+.trade-off-reference p {
+  color: #475569;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.comparison-result,
+.scenario-comparison-result {
+  display: grid;
+  gap: 14px;
+}
+
+.comparison-change-group ul {
+  color: #475569;
+  line-height: 1.65;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.comparison-change-group li span {
+  color: #64748b;
+  display: block;
+}
+
+.comparison-change-grid strong,
+.trade-off-reference strong {
+  color: #334155;
+  display: block;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.trade-off-reference {
+  display: grid;
+  gap: 8px;
+}
+
 .review-block ul {
   padding-left: 20px;
 }
@@ -1533,8 +1792,13 @@
 
   .review-grid,
   .architecture-comparison,
+  .comparison-controls,
+  .comparison-summary-grid,
+  .comparison-change-grid,
   .home-next-grid,
   .learning-path,
+  .module-overview,
+  .module-linked-resources,
   .scenario-brief,
   .builder-form,
   .builder-layout,

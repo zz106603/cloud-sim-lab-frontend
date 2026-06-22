@@ -8,7 +8,12 @@ export type LearningDocument = {
   content: string
   orderIndex?: number
   summary?: string
+  prerequisiteDocumentIds: string[]
+  conceptTags: string[]
   relatedDocumentIds: string[]
+  relatedModuleIds: string[]
+  relatedScenarioIds: string[]
+  relatedArchitecturePracticeIds: string[]
   relatedScenarios: RelatedScenario[]
 }
 
@@ -38,8 +43,10 @@ export type Scenario = {
   summary: string
   initialArchitecture: string[]
   initialArchitectureGraph?: ArchitectureGraph
+  initialFailureImpact?: FailureImpact
   options: ScenarioOption[]
   recommendedOptionIds: string[]
+  relatedModuleIds: string[]
   relatedLearningDocuments: RelatedLearningDocument[]
 }
 
@@ -51,9 +58,13 @@ export type SimulationResult = {
   detail: string[]
   review: SimulationReview
   effects: ScoreMap
+  tradeOffSummary: ScoreMap
   finalArchitecture: string[]
   finalArchitectureGraph?: ArchitectureGraph
+  failureImpactResult?: FailureImpactResult
   relatedLearningDocuments: RelatedLearningDocument[]
+  reflectionQuestions: SimulationReflectionQuestion[]
+  remediation: SimulationRemediation
 }
 
 export type SimulationReview = {
@@ -64,6 +75,20 @@ export type SimulationReview = {
   nextStep?: string
 }
 
+export type SimulationReflectionQuestion = {
+  id: string
+  question: string
+  relatedOptionId: string
+  relatedTradeOffPerspective: string
+}
+
+export type SimulationRemediation = {
+  reviewDocumentIds: string[]
+  retryScenarioIds: string[]
+  compareOptionIds: string[]
+  missedDecisionCriteria: string[]
+}
+
 export type RelatedLearningDocument = {
   id: string
   title: string
@@ -71,6 +96,89 @@ export type RelatedLearningDocument = {
   level: string
   summary?: string
   reviewReason?: string
+}
+
+export type LearningPathSummary = {
+  id: string
+  title: string
+  description: string
+  targetLevel: string
+  learningGoal: string
+  recommended: boolean
+  orderIndex: number
+  moduleIds: string[]
+}
+
+export type LearningPathDetail = Omit<LearningPathSummary, 'moduleIds'> & {
+  modules: LearningPathModule[]
+}
+
+export type LearningPathModule = {
+  id: string
+  pathId: string
+  title: string
+  description: string
+  learningGoals: string[]
+  prerequisites: string[]
+  orderIndex: number
+  documentIds: string[]
+  relatedScenarioIds: string[]
+  relatedArchitecturePracticeIds: string[]
+}
+
+export type LearningModule = LearningPathModule & {
+  practiceActivities: LearningModulePracticeActivity[]
+}
+
+export type LearningModulePracticeActivity = {
+  id: string
+  type: 'READ_DOCUMENT' | 'RUN_SCENARIO' | 'BUILD_ARCHITECTURE' | string
+  title: string
+  description: string
+  targetResourceId: string
+  recommendedOrder: number
+}
+
+export type LearningDiscoveryFilters = {
+  category?: string
+  level?: string
+  tag?: string
+  resourceType?: 'DOCUMENT' | 'SCENARIO' | 'MODULE' | 'ARCHITECTURE_PRACTICE' | string
+}
+
+export type LearningDiscoveryItem = {
+  resourceType: string
+  id: string
+  title: string
+  summary: string
+  category: string
+  level: string
+  conceptTags: string[]
+  relatedDocumentIds: string[]
+  relatedScenarioIds: string[]
+  relatedModuleIds: string[]
+  relatedArchitecturePracticeIds: string[]
+  recommendedPathIncluded: boolean
+  orderIndex: number
+}
+
+export type ArchitecturePracticeSummary = {
+  id: string
+  title: string
+  description: string
+  level: string
+  learningGoal: string
+  requiredResourceTypes: string[]
+  requiredConnectionTypes: string[]
+  relatedDocumentIds: string[]
+  relatedScenarioIds: string[]
+  relatedModuleIds: string[]
+}
+
+export type ArchitecturePracticeDetail = ArchitecturePracticeSummary & {
+  instructions: string[]
+  starterNodes: UserArchitectureNode[]
+  starterConnections: UserArchitectureConnection[]
 }
 
 export type ScoreMap = Record<string, number>
@@ -91,6 +199,20 @@ export type ArchitectureEdge = {
   source: string
   target: string
   label?: string
+}
+
+export type FailureImpact = {
+  failureSourceNodeId?: string
+  affectedNodeIds: string[]
+  affectedEdges: ArchitectureEdge[]
+  userSymptoms: string[]
+  remainingRisks: string[]
+}
+
+export type FailureImpactResult = {
+  recoveredEdges: ArchitectureEdge[]
+  remainingImpact?: FailureImpact
+  postActionNotes: string[]
 }
 
 export type UserArchitectureSummary = {
@@ -166,6 +288,125 @@ export type UserArchitectureValidationIssue = {
   targetId?: string
   message: string
   reason: string
+}
+
+export type UserArchitectureComparisonResult = {
+  base?: ArchitectureComparisonSummary
+  target?: ArchitectureComparisonSummary
+  resources: ArchitectureResourceComparison
+  connections: ArchitectureConnectionComparison
+  scenarioComparison?: ScenarioArchitectureComparison
+  tradeOffReferences: TradeOffReference[]
+}
+
+export type ArchitectureComparisonSummary = {
+  comparisonType: string
+  id: string
+  title: string
+  resourceCount: number
+  connectionCount: number
+}
+
+export type ArchitectureResourceComparison = {
+  added: ArchitectureResourceChange[]
+  removed: ArchitectureResourceChange[]
+  changed: ArchitectureResourceChange[]
+  unchanged: ArchitectureResourceChange[]
+}
+
+export type ArchitectureResourceChange = {
+  changeType: string
+  resourceKey: string
+  resourceId: string
+  baseResourceType: string
+  baseDisplayName: string
+  targetResourceType: string
+  targetDisplayName: string
+  reason: string
+}
+
+export type ArchitectureConnectionComparison = {
+  added: ArchitectureConnectionChange[]
+  removed: ArchitectureConnectionChange[]
+  changed: ArchitectureConnectionChange[]
+  unchanged: ArchitectureConnectionChange[]
+}
+
+export type ArchitectureConnectionChange = {
+  changeType: string
+  connectionKey: string
+  connectionId: string
+  baseSourceNodeId: string
+  baseTargetNodeId: string
+  baseConnectionType: string
+  targetSourceNodeId: string
+  targetTargetNodeId: string
+  targetConnectionType: string
+  reason: string
+}
+
+export type ScenarioArchitectureComparison = {
+  scenarioId: string
+  scenarioTitle: string
+  learningGoal: string
+  missingRecommendedResources: ArchitectureResourceChange[]
+  extraResources: ArchitectureResourceChange[]
+  learningImpacts: ArchitectureLearningImpact[]
+}
+
+export type ArchitectureLearningImpact = {
+  code: string
+  targetKey: string
+  message: string
+  reason: string
+}
+
+export type TradeOffReference = {
+  optionName: string
+  reason: string
+  effects: ScoreMap
+}
+
+export async function fetchLearningPaths() {
+  const data = await request<unknown>('/learning-paths')
+  return extractList(data).map(toLearningPathSummary)
+}
+
+export async function fetchLearningPath(pathId: string) {
+  const data = await request<unknown>(`/learning-paths/${encodeURIComponent(pathId)}`)
+  return toLearningPathDetail(data)
+}
+
+export async function fetchLearningModules() {
+  const data = await request<unknown>('/learning-modules')
+  return extractList(data).map(toLearningModule)
+}
+
+export async function fetchLearningModule(moduleId: string) {
+  const data = await request<unknown>(`/learning-modules/${encodeURIComponent(moduleId)}`)
+  return toLearningModule(data)
+}
+
+export async function fetchLearningDiscovery(filters: LearningDiscoveryFilters = {}) {
+  const params = new URLSearchParams()
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value) params.set(key, value)
+  })
+
+  const query = params.toString()
+  const data = await request<unknown>(`/learning-discovery${query ? `?${query}` : ''}`)
+  return extractList(data).map(toLearningDiscoveryItem)
+}
+
+export async function fetchArchitecturePractices() {
+  const data = await request<unknown>('/architecture-practices')
+  return extractList(data).map(toArchitecturePracticeSummary)
+}
+
+export async function fetchArchitecturePractice(practiceId: string) {
+  const data = await request<unknown>(`/architecture-practices/${encodeURIComponent(practiceId)}`)
+  return toArchitecturePracticeDetail(data)
 }
 
 export async function fetchDocuments() {
@@ -255,6 +496,27 @@ export async function validateUserArchitecture(
   return toUserArchitectureValidationResult(data)
 }
 
+export async function compareUserArchitectures(
+  baseArchitectureId: string,
+  targetArchitectureId: string,
+) {
+  const data = await request<unknown>(
+    '/user-architectures/compare',
+    jsonRequest('POST', { baseArchitectureId, targetArchitectureId }),
+  )
+  return toUserArchitectureComparisonResult(data)
+}
+
+export async function compareUserArchitectureWithScenario(
+  architectureId: string,
+  scenarioId: string,
+) {
+  const data = await request<unknown>(
+    `/user-architectures/${encodeURIComponent(architectureId)}/comparison/scenarios/${encodeURIComponent(scenarioId)}`,
+  )
+  return toUserArchitectureComparisonResult(data)
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, init)
 
@@ -309,7 +571,12 @@ function toLearningDocument(data: unknown): LearningDocument {
     content: toText(item.content),
     orderIndex: typeof item.orderIndex === 'number' ? item.orderIndex : undefined,
     summary: toOptionalText(item.summary),
-    relatedDocumentIds: toTextList(item.relatedDocumentIds),
+    prerequisiteDocumentIds: toTextList(item.prerequisiteDocumentIds),
+    conceptTags: toTextList(item.conceptTags),
+    relatedDocumentIds: toTextList(item.relatedDocumentIds ?? item.prerequisiteDocumentIds),
+    relatedModuleIds: toTextList(item.relatedModuleIds),
+    relatedScenarioIds: toTextList(item.relatedScenarioIds),
+    relatedArchitecturePracticeIds: toTextList(item.relatedArchitecturePracticeIds),
     relatedScenarios: extractList(item.relatedScenarios).map(toRelatedScenario),
   }
 }
@@ -327,11 +594,127 @@ function toScenario(data: unknown): Scenario {
     summary: toText(item.summary) || toText(item.problem),
     initialArchitecture: toTextList(item.initialArchitecture),
     initialArchitectureGraph: toArchitectureGraph(item.initialArchitectureGraph),
+    initialFailureImpact: toFailureImpact(item.initialFailureImpact),
     options: extractList(item.options).map(toScenarioOption),
     recommendedOptionIds: toTextList(item.recommendedOptionIds),
+    relatedModuleIds: toTextList(item.relatedModuleIds),
     relatedLearningDocuments: toRelatedLearningDocuments(
       item.relatedLearningDocuments ?? item.relatedDocumentIds,
     ),
+  }
+}
+
+function toLearningPathSummary(data: unknown): LearningPathSummary {
+  const item = asRecord(data)
+
+  return {
+    id: toText(item.id),
+    title: toText(item.title),
+    description: toText(item.description),
+    targetLevel: toText(item.targetLevel),
+    learningGoal: toText(item.learningGoal),
+    recommended: item.recommended === true,
+    orderIndex: toNumber(item.orderIndex),
+    moduleIds: toTextList(item.moduleIds),
+  }
+}
+
+function toLearningPathDetail(data: unknown): LearningPathDetail {
+  const summary = toLearningPathSummary(data)
+  const item = asRecord(data)
+
+  return {
+    ...summary,
+    modules: extractList(item.modules).map(toLearningPathModule),
+  }
+}
+
+function toLearningPathModule(data: unknown): LearningPathModule {
+  const item = asRecord(data)
+
+  return {
+    id: toText(item.id),
+    pathId: toText(item.pathId),
+    title: toText(item.title),
+    description: toText(item.description),
+    learningGoals: toTextList(item.learningGoals),
+    prerequisites: toTextList(item.prerequisites),
+    orderIndex: toNumber(item.orderIndex),
+    documentIds: toTextList(item.documentIds),
+    relatedScenarioIds: toTextList(item.relatedScenarioIds),
+    relatedArchitecturePracticeIds: toTextList(item.relatedArchitecturePracticeIds),
+  }
+}
+
+function toLearningModule(data: unknown): LearningModule {
+  const item = asRecord(data)
+
+  return {
+    ...toLearningPathModule(data),
+    practiceActivities: extractList(item.practiceActivities).map(toLearningModulePracticeActivity),
+  }
+}
+
+function toLearningModulePracticeActivity(data: unknown): LearningModulePracticeActivity {
+  const item = asRecord(data)
+
+  return {
+    id: toText(item.id),
+    type: toText(item.type),
+    title: toText(item.title),
+    description: toText(item.description),
+    targetResourceId: toText(item.targetResourceId),
+    recommendedOrder: toNumber(item.recommendedOrder),
+  }
+}
+
+function toLearningDiscoveryItem(data: unknown): LearningDiscoveryItem {
+  const item = asRecord(data)
+
+  return {
+    resourceType: toText(item.resourceType),
+    id: toText(item.id),
+    title: toText(item.title),
+    summary: toText(item.summary),
+    category: toText(item.category),
+    level: toText(item.level),
+    conceptTags: toTextList(item.conceptTags),
+    relatedDocumentIds: toTextList(item.relatedDocumentIds),
+    relatedScenarioIds: toTextList(item.relatedScenarioIds),
+    relatedModuleIds: toTextList(item.relatedModuleIds),
+    relatedArchitecturePracticeIds: toTextList(item.relatedArchitecturePracticeIds),
+    recommendedPathIncluded: item.recommendedPathIncluded === true,
+    orderIndex: toNumber(item.orderIndex),
+  }
+}
+
+function toArchitecturePracticeSummary(data: unknown): ArchitecturePracticeSummary {
+  const item = asRecord(data)
+
+  return {
+    id: toText(item.id),
+    title: toText(item.title),
+    description: toText(item.description),
+    level: toText(item.level),
+    learningGoal: toText(item.learningGoal),
+    requiredResourceTypes: toTextList(item.requiredResourceTypes),
+    requiredConnectionTypes: toTextList(item.requiredConnectionTypes),
+    relatedDocumentIds: toTextList(item.relatedDocumentIds),
+    relatedScenarioIds: toTextList(item.relatedScenarioIds),
+    relatedModuleIds: toTextList(item.relatedModuleIds),
+  }
+}
+
+function toArchitecturePracticeDetail(data: unknown): ArchitecturePracticeDetail {
+  const item = asRecord(data)
+
+  return {
+    ...toArchitecturePracticeSummary(data),
+    instructions: toTextList(item.instructions),
+    starterNodes: extractList(item.starterNodes).map(toUserArchitectureNode).filter((node) => node.id),
+    starterConnections: extractList(item.starterConnections)
+      .map(toUserArchitectureConnection)
+      .filter((connection) => connection.id),
   }
 }
 
@@ -371,11 +754,15 @@ function toSimulationResult(data: unknown): SimulationResult {
     detail: toFeedbackList(item.detail ?? item.detailFeedback),
     review: toSimulationReview(item.review ?? item),
     effects: toScoreMap(item.effects ?? item.scores ?? item.scoreEffects),
+    tradeOffSummary: toScoreMap(item.tradeOffSummary),
     finalArchitecture: toTextList(item.finalArchitecture),
     finalArchitectureGraph: toArchitectureGraph(item.finalArchitectureGraph),
+    failureImpactResult: toFailureImpactResult(item.failureImpactResult),
     relatedLearningDocuments: toRelatedLearningDocuments(
       item.relatedLearningDocuments ?? item.relatedDocumentIds,
     ),
+    reflectionQuestions: extractList(item.reflectionQuestions).map(toSimulationReflectionQuestion),
+    remediation: toSimulationRemediation(item.remediation),
   }
 }
 
@@ -488,6 +875,119 @@ function toUserArchitectureValidationIssue(data: unknown): UserArchitectureValid
   }
 }
 
+function toUserArchitectureComparisonResult(data: unknown): UserArchitectureComparisonResult {
+  const item = asRecord(data)
+
+  return {
+    base: toArchitectureComparisonSummary(item.base),
+    target: toArchitectureComparisonSummary(item.target),
+    resources: toArchitectureResourceComparison(item.resources),
+    connections: toArchitectureConnectionComparison(item.connections),
+    scenarioComparison: toScenarioArchitectureComparison(item.scenarioComparison),
+    tradeOffReferences: extractList(item.tradeOffReferences).map(toTradeOffReference),
+  }
+}
+
+function toArchitectureComparisonSummary(value: unknown): ArchitectureComparisonSummary | undefined {
+  if (!isRecord(value)) return undefined
+
+  return {
+    comparisonType: toText(value.comparisonType),
+    id: toText(value.id),
+    title: toText(value.title),
+    resourceCount: toNumber(value.resourceCount),
+    connectionCount: toNumber(value.connectionCount),
+  }
+}
+
+function toArchitectureResourceComparison(value: unknown): ArchitectureResourceComparison {
+  const item = asRecord(value)
+
+  return {
+    added: extractList(item.added).map(toArchitectureResourceChange),
+    removed: extractList(item.removed).map(toArchitectureResourceChange),
+    changed: extractList(item.changed).map(toArchitectureResourceChange),
+    unchanged: extractList(item.unchanged).map(toArchitectureResourceChange),
+  }
+}
+
+function toArchitectureResourceChange(value: unknown): ArchitectureResourceChange {
+  const item = asRecord(value)
+
+  return {
+    changeType: toText(item.changeType),
+    resourceKey: toText(item.resourceKey),
+    resourceId: toText(item.resourceId),
+    baseResourceType: toText(item.baseResourceType),
+    baseDisplayName: toText(item.baseDisplayName),
+    targetResourceType: toText(item.targetResourceType),
+    targetDisplayName: toText(item.targetDisplayName),
+    reason: toText(item.reason),
+  }
+}
+
+function toArchitectureConnectionComparison(value: unknown): ArchitectureConnectionComparison {
+  const item = asRecord(value)
+
+  return {
+    added: extractList(item.added).map(toArchitectureConnectionChange),
+    removed: extractList(item.removed).map(toArchitectureConnectionChange),
+    changed: extractList(item.changed).map(toArchitectureConnectionChange),
+    unchanged: extractList(item.unchanged).map(toArchitectureConnectionChange),
+  }
+}
+
+function toArchitectureConnectionChange(value: unknown): ArchitectureConnectionChange {
+  const item = asRecord(value)
+
+  return {
+    changeType: toText(item.changeType),
+    connectionKey: toText(item.connectionKey),
+    connectionId: toText(item.connectionId),
+    baseSourceNodeId: toText(item.baseSourceNodeId),
+    baseTargetNodeId: toText(item.baseTargetNodeId),
+    baseConnectionType: toText(item.baseConnectionType),
+    targetSourceNodeId: toText(item.targetSourceNodeId),
+    targetTargetNodeId: toText(item.targetTargetNodeId),
+    targetConnectionType: toText(item.targetConnectionType),
+    reason: toText(item.reason),
+  }
+}
+
+function toScenarioArchitectureComparison(value: unknown): ScenarioArchitectureComparison | undefined {
+  if (!isRecord(value)) return undefined
+
+  return {
+    scenarioId: toText(value.scenarioId),
+    scenarioTitle: toText(value.scenarioTitle),
+    learningGoal: toText(value.learningGoal),
+    missingRecommendedResources: extractList(value.missingRecommendedResources).map(toArchitectureResourceChange),
+    extraResources: extractList(value.extraResources).map(toArchitectureResourceChange),
+    learningImpacts: extractList(value.learningImpacts).map(toArchitectureLearningImpact),
+  }
+}
+
+function toArchitectureLearningImpact(value: unknown): ArchitectureLearningImpact {
+  const item = asRecord(value)
+
+  return {
+    code: toText(item.code),
+    targetKey: toText(item.targetKey),
+    message: toText(item.message),
+    reason: toText(item.reason),
+  }
+}
+
+function toTradeOffReference(value: unknown): TradeOffReference {
+  const item = asRecord(value)
+
+  return {
+    optionName: toText(item.optionName),
+    reason: toText(item.reason),
+    effects: toScoreMap(item.effects),
+  }
+}
+
 async function readErrorMessage(response: Response) {
   const fallback = `API 요청 실패: ${response.status}`
 
@@ -573,6 +1073,28 @@ function toSimulationReview(value: unknown): SimulationReview {
   }
 }
 
+function toSimulationReflectionQuestion(value: unknown): SimulationReflectionQuestion {
+  const item = asRecord(value)
+
+  return {
+    id: toText(item.id),
+    question: toText(item.question),
+    relatedOptionId: toText(item.relatedOptionId),
+    relatedTradeOffPerspective: toText(item.relatedTradeOffPerspective),
+  }
+}
+
+function toSimulationRemediation(value: unknown): SimulationRemediation {
+  const item = asRecord(value)
+
+  return {
+    reviewDocumentIds: toIdList(item.reviewDocumentIds),
+    retryScenarioIds: toIdList(item.retryScenarioIds),
+    compareOptionIds: toIdList(item.compareOptionIds),
+    missedDecisionCriteria: toTextList(item.missedDecisionCriteria),
+  }
+}
+
 function toArchitectureGraph(value: unknown): ArchitectureGraph | undefined {
   if (!isRecord(value)) return undefined
 
@@ -605,6 +1127,48 @@ function toArchitectureEdge(value: unknown): ArchitectureEdge {
     target: toText(item.target),
     label: toOptionalText(item.label),
   }
+}
+
+function toArchitectureEdges(value: unknown) {
+  return extractList(value)
+    .map(toArchitectureEdge)
+    .filter((edge) => edge.source.length > 0 && edge.target.length > 0)
+}
+
+function toFailureImpact(value: unknown): FailureImpact | undefined {
+  if (!isRecord(value)) return undefined
+
+  const impact = {
+    failureSourceNodeId: toOptionalText(value.failureSourceNodeId),
+    affectedNodeIds: toTextList(value.affectedNodeIds),
+    affectedEdges: toArchitectureEdges(value.affectedEdges),
+    userSymptoms: toTextList(value.userSymptoms),
+    remainingRisks: toTextList(value.remainingRisks),
+  }
+  const hasImpact =
+    impact.failureSourceNodeId ||
+    impact.affectedNodeIds.length > 0 ||
+    impact.affectedEdges.length > 0 ||
+    impact.userSymptoms.length > 0 ||
+    impact.remainingRisks.length > 0
+
+  return hasImpact ? impact : undefined
+}
+
+function toFailureImpactResult(value: unknown): FailureImpactResult | undefined {
+  if (!isRecord(value)) return undefined
+
+  const result = {
+    recoveredEdges: toArchitectureEdges(value.recoveredEdges),
+    remainingImpact: toFailureImpact(value.remainingImpact),
+    postActionNotes: toTextList(value.postActionNotes),
+  }
+  const hasResult =
+    result.recoveredEdges.length > 0 ||
+    result.remainingImpact ||
+    result.postActionNotes.length > 0
+
+  return hasResult ? result : undefined
 }
 
 function isValidArchitectureNode(node: ArchitectureNode) {
